@@ -21,6 +21,7 @@ int main()
 			});
 
 		std::make_shared<CServer>(ioc, port)->start();
+		std::cout << "Gate Serverlisten on port " << port << std::endl;
 		ioc.run();	//让事件轮询起来
 
 	}
