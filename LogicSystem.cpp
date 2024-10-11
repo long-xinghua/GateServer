@@ -1,5 +1,6 @@
 #include "LogicSystem.h"
 #include "HttpConnection.h"
+#include "VerifyGrpcClient.h"
 
 void LogicSystem::regGet(std::string url, HttpHander handler) {
 	_get_handlers.insert(make_pair(url, handler));	// 将url和回调函数写入map中
@@ -26,7 +27,7 @@ LogicSystem::LogicSystem() {
 		Json::Value root;	// 发给客户端的json数据
 		Json::Reader reader;	// 用于解析Json数据
 		Json::Value src_root;	// 客户端发过来的json数据
-		bool parse_success = reader.parse(body_str, src_root);	// Json::Reader::parse将字符串格式的json数据解析成Json::value类型，返回解析情况（成功或失败）
+		bool parse_success = reader.parse(body_str, src_root);	// Json::Reader::parse将字符串格式的json数据body_str解析成Json::value类型，返回解析情况（成功或失败）
 		if (!parse_success) {	//	解析失败
 			std::cout << "Failed to parse JSON data" << std::endl;
 			root["error"] = ErrorCodes::Error_Json;	//回包中设置一下错误信息
@@ -42,9 +43,14 @@ LogicSystem::LogicSystem() {
 			beast::ostream(connection->_response.body()) << jsonstr;	//将序列化后的json信息给到_response中的body
 			return true;
 		}
+		// 没有问题，执行后续操作
 		auto email = src_root["email"].asString();
+
+		// 除了给客户端发response，还要给verify服务端发请求
+		GetVarifyRsp rsp =  VerifyGrpcClient::getInstance()->getVerifyCode(email);
+
 		std::cout << "email is: " << email << std::endl;
-		root["error"] = 0;
+		root["error"] = rsp.error();	// 返回的error是rsp中的error
 		root["email"] = src_root["email"];
 		std::string jsonstr = root.toStyledString();
 		beast::ostream(connection->_response.body()) << jsonstr;

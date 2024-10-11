@@ -15,6 +15,8 @@ void CServer::start() {
 				self->start();
 				return;
 			}
+
+			std::cout << "accept a new http connection" << std::endl;
 			
 			// 创建新连接，并创建HttpConnection类管理连接
 			std::make_shared<HttpConnection>(std::move(self->_socket))->start();	//别直接定义一个局部变量，如HttpConnection(std::move(self->_socket))，这样随着作用域就释放掉了

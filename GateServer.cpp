@@ -6,9 +6,14 @@
 #include <json/value.h>
 #include <json/reader.h>
 #include "CServer.h"
+#include "ConfigMgr.h"
 
 int main()
 {
+	ConfigMgr gCfgMgr;
+	std::string gate_port_str = gCfgMgr["GateServer"]["Port"];
+	unsigned short gate_port = atoi(gate_port_str.c_str());
+
 	try {
 		unsigned short port = static_cast<unsigned short>(8080);	// 设置端口
 		net::io_context ioc{ 1 };	// 底层设置一个线程来跑

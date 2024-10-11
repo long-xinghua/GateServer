@@ -143,7 +143,7 @@ void HttpConnection::handleReq() {
 	}
 
 	if (_request.method() == http::verb::post) {	// 处理post请求, post请求无需解析链接中的参数
-		bool success = LogicSystem::getInstance()->handlePost(_request.target(), shared_from_this());	//LogicSystem是单例类，用getInstance获取对象地址，来处理get请求
+		bool success = LogicSystem::getInstance()->handlePost(_request.target(), shared_from_this());	//LogicSystem是单例类，用getInstance获取对象地址，来处理post请求
 		if (!success) {	// 处理出错
 			_response.result(http::status::not_found);	//枚举值，not_fount=404
 			_response.set(http::field::content_type, "text/plain");	// 指定http头部为"text/plain",纯文本格式，帮助客户端理解、处理和显示相应内容（还有其他格式如图像类型、音视频类型、应用程序类型等）
