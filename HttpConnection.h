@@ -4,8 +4,10 @@ class HttpConnection:public std::enable_shared_from_this<HttpConnection>
 {
 public:
 	friend class LogicSystem;
-	HttpConnection(tcp::socket socket);
+	//HttpConnection(tcp::socket socket);	// Http连接绑定在CServer的socket上只用了一个线程，绑定到io_context连接池中能提高并发能力
+	HttpConnection(boost::asio::io_context& ioc);	// io_context没有拷贝构造，要用引用的方式传递
 	void start();	//开始监听读写事件
+	tcp::socket& getSocket();	// 要将HttpConnection中的socket交给accepter去接收连接，所以要用getSocket()把socket给它
 private:
 	void checkDeadline();	// 检测超时的函数
 	void writeResponse();	// 收到数据后进行应答

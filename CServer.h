@@ -11,6 +11,5 @@ public:
 private:
 	tcp::acceptor _acceptor;	// 接收器
 	net::io_context& _ioc;	//要用引用类型，接受外部传过来的实例，它没有拷贝构造和拷贝赋值
-	tcp::socket _socket;
 };
 

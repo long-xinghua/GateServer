@@ -47,7 +47,7 @@ LogicSystem::LogicSystem() {
 		auto email = src_root["email"].asString();
 
 		// 除了给客户端发response，还要给verify服务端发请求
-		GetVarifyRsp rsp =  VerifyGrpcClient::getInstance()->getVerifyCode(email);
+		GetVarifyRsp rsp =  VerifyGrpcClient::getInstance()->getVerifyCode(email);	// 如果与grpc服务器的连接被多个线程同时访问会出现线程安全问题，可用连接池来解决
 
 		std::cout << "email is: " << email << std::endl;
 		root["error"] = rsp.error();	// 返回的error是rsp中的error

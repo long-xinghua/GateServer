@@ -28,7 +28,7 @@ struct SectionInfo {	//比如config.ini中的[GateServer]就是个Section，里面有一些键
 };
 
 //config.ini配置信息的管理类
-class ConfigMgr
+class ConfigMgr	// 在配置多线程时将其改为了单例类
 {
 public:
 	~ConfigMgr() {
@@ -42,7 +42,12 @@ public:
 		}
 		return _config_map[sectionName];
 	}
-	ConfigMgr();
+	
+	static ConfigMgr& getInst() {	// 另一种生成单例类的方法（C++11以上），外部通过Inst()函数获取单例
+		static ConfigMgr cfg_mgr;	// cfg_mgr由于是static的，被多次访问也只初始化一次，生命周期持续到进程结束
+		return cfg_mgr;
+	}
+
 	ConfigMgr(const ConfigMgr& src) {
 		_config_map = src._config_map;
 	}
@@ -50,9 +55,10 @@ public:
 	ConfigMgr& operator=(const ConfigMgr& src) {
 		if (&src == this) return *this;
 		_config_map = src._config_map;
+		return *this;
 	}
 private:
-	
+	ConfigMgr();
 	std::map <std::string, SectionInfo> _config_map;
 };
 

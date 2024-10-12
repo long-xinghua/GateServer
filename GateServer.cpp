@@ -10,7 +10,7 @@
 
 int main()
 {
-	ConfigMgr gCfgMgr;
+	auto& gCfgMgr = ConfigMgr::getInst();	// 存放的配置数据(由于单例类没有拷贝构造，这里就用引用的方式传递)
 	std::string gate_port_str = gCfgMgr["GateServer"]["Port"];
 	unsigned short gate_port = atoi(gate_port_str.c_str());
 

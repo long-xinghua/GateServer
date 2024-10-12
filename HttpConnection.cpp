@@ -1,9 +1,9 @@
 #include "HttpConnection.h"
 #include "LogicSystem.h"
 
-HttpConnection::HttpConnection(tcp::socket socket):_socket(std::move(socket)) {	// 由于socket没有默认构造，若不在初始化列表中对_socket进行初始化，则会自动调用其默认构造，
-																				// 然而它没有默认构造，报错。它也没有拷贝构造，只能用移动构造
-}
+HttpConnection::HttpConnection(boost::asio::io_context& ioc):_socket(ioc) {	// 由于socket没有默认构造，若不在初始化列表中对_socket进行初始化，则会自动调用其默认构造，
+																				// 然而它没有默认构造，报错。它也没有拷贝构造，只能用移动构造（在使用CServer的socket初始化时）
+}																				// 在引入连接池后，直接用连接池中的上下文来初始化socket连接
 void HttpConnection::start() {
 	auto self = shared_from_this();	// 防止回调之前自己被干掉
 	http::async_read(_socket, _buffer, _request, [self](beast::error_code ec, std::size_t bytes_transfered) {	//异步读取，函数立即返回，读取在后台进行，读取完成时才调用回调函数
@@ -173,4 +173,8 @@ void HttpConnection::checkDeadline() {
 			self->_socket.close(ec);	// 只有回报后长时间无响应才会调用这个回调函数，关闭客户端和服务端的连接（但服务器主动关闭连接会进入time_wait状态导致端口不可用！）
 		}
 		});
+}
+
+tcp::socket& HttpConnection::getSocket() {
+	return _socket;
 }

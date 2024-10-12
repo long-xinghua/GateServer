@@ -15,6 +15,10 @@
 #include <boost/filesystem.hpp>	// 用boost库里的文件系统来管理文件，在windows和linux中都能用
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
+#include <atomic>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
 
 // 简化名称
 namespace beast = boost::beast;         // from <boost/beast.hpp>
@@ -27,9 +31,5 @@ enum ErrorCodes {
 	Error_Json = 1001,	// Json解析错误
 	RPCFailed = 1002,	// RPC请求错误
 };
-
-
-class ConfigMgr;	// 前置声明ConfigMgr
-extern ConfigMgr gCfgMgr;
 
 
