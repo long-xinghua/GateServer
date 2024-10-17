@@ -5,7 +5,7 @@ AsioIOServicePool::AsioIOServicePool(std::size_t size):_ioServices(size),
 _works(size), _nextIOService(0){
 	for (std::size_t i = 0; i < size; ++i) {
 		_works[i] = std::unique_ptr<Work>(new Work(_ioServices[i]));	//work的构造函数参数就是一个io_context，绑定到该上下文上，防止之后ioService跑起来了直接返回
-	}
+	}																	//用_works[i] = std::make_unique<Work>(_ioServices[i])比自己手动new一个对象更好
 
 	//遍历多个ioservice，创建多个线程，每个线程内部启动ioservice
 	for (std::size_t i = 0; i < _ioServices.size(); ++i) {
