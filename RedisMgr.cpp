@@ -26,7 +26,7 @@ bool RedisMgr::get(const std::string& key, std::string& value) {
     }
 
     if (reply->type != REDIS_REPLY_STRING) { // 正常的回复必须是string类型（redis的基本类型），判断一下
-        std::cout << "[ GET  " << key << " ] failed" << std::endl;
+        std::cout << "[ GET  " << key << " ] failed, reply is not a string type, reply type: "<<reply->type << std::endl;
         freeReplyObject(reply);
         return false;
     }

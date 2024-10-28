@@ -1,6 +1,7 @@
 #include "LogicSystem.h"
 #include "HttpConnection.h"
 #include "VerifyGrpcClient.h"
+#include "RedisMgr.h"
 
 void LogicSystem::regGet(std::string url, HttpHander handler) {
 	_get_handlers.insert(make_pair(url, handler));	// 将url和回调函数写入map中
@@ -25,7 +26,7 @@ LogicSystem::LogicSystem() {
 		std::cout << "receive body: " << body_str << std::endl;
 		connection->_response.set(http::field::content_type, "text/json");	// 指定给客户端回一个json类型的数据
 		Json::Value root;	// 发给客户端的json数据
-		Json::Reader reader;	// 用于解析Json数据
+		Json::Reader reader;	// 用于解析出Json数据
 		Json::Value src_root;	// 客户端发过来的json数据
 		bool parse_success = reader.parse(body_str, src_root);	// Json::Reader::parse将字符串格式的json数据body_str解析成Json::value类型，返回解析情况（成功或失败）
 		if (!parse_success) {	//	解析失败
@@ -57,6 +58,77 @@ LogicSystem::LogicSystem() {
 		return true;
 		});
 
+	regPost("/user_register", [](std::shared_ptr<HttpConnection> connection) {
+		auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());	// 将客户端发过来的数据转换成字符串类型
+		std::cout << "receive body: " << body_str << std::endl;
+		connection->_response.set(http::field::content_type, "text/json");	// 指定给客户端回一个json类型的数据
+		Json::Value root;	// 发给客户端的json数据
+		Json::Reader reader;	// 用于解析出Json数据
+		Json::Value src_root;	// 客户端发过来的json数据
+		bool parse_success = reader.parse(body_str, src_root);	// Json::Reader::parse将字符串格式的json数据body_str解析成Json::value类型，返回解析情况（成功或失败）
+		if (!parse_success) {	//	解析失败
+			std::cout << "Failed to parse JSON data" << std::endl;
+			root["error"] = ErrorCodes::Error_Json;	//回包中设置一下错误信息
+			std::string jsonstr = root.toStyledString();	// 将Json结构序列化
+			beast::ostream(connection->_response.body()) << jsonstr;	//将序列化后的json信息给到_response中的body
+			return true;
+		}
+		if (!src_root.isMember("email")) {	// JSON中不存在"email"的项
+			std::cout << "no member called email" << std::endl;
+			root["error"] = ErrorCodes::Error_Json;	//回包中设置一下错误信息
+			std::string jsonstr = root.toStyledString();	// 将Json结构序列化
+			beast::ostream(connection->_response.body()) << jsonstr;	//将序列化后的json信息给到_response中的body
+			return true;
+		}
+
+		std::string email = src_root["email"].asString();
+		std::string user = src_root["user"].asString();
+		std::string passwd = src_root["passwd"].asString();
+		std::string confirm = src_root["confirm"].asString();
+		std::string verifyCode = src_root["verifyCode"].asString();
+
+		if (passwd != confirm) {	// 即使前端确认过两次输入的密码是否一致，在这里还是要判断一下，确保安全
+			root["error"] = ErrorCodes::PasswdErr;	//回包中设置一下错误信息
+			std::cout << "passwd: " << passwd << " doesn't match confirm: " << confirm << std::endl;
+			std::string jsonstr = root.toStyledString();	// 将Json结构序列化
+			beast::ostream(connection->_response.body()) << jsonstr;	//将序列化后的json信息给到_response中的body
+			return true;
+		}
+
+		// 连接redis服务器，确认客户端的验证码是否和redis服务器中的一致
+		// 之前config.ini中的redis服务器地址没改，导致一直返回REDIS_ERR_PROTOCOL，后改为本地ip地址
+		std::string trueVerifyCode;
+		std::string key = CODEPREFIX + src_root["email"].asString();
+		std::cout << "key:" << key << std::endl;
+		bool b_get_varify_code = RedisMgr::getInstance()->get(key, trueVerifyCode);
+		connection->_response.set(http::field::content_type, "text/json");	// 指定给客户端回一个json类型的数据
+		if (!b_get_varify_code) {	// 获取redis中的验证码失败
+			std::cout << "connect to redis failed or verifyCode is expired"<< trueVerifyCode << std::endl;
+			root["error"] = ErrorCodes::VerifyExpired;	// 回包中错误信息为验证码过期
+			std::string jsonstr = root.toStyledString();	// 将Json结构序列化
+			beast::ostream(connection->_response.body()) << jsonstr;	//将序列化后的json信息给到_response中的body
+			return true;
+		}
+		// 获取验证码成功，判断客户端验证码和redis验证码是否一致
+		if (trueVerifyCode != src_root["verifyCode"].asString()) {
+			std::cout << "wrong verify code!!" << std::endl;
+			root["error"] = ErrorCodes::VerifyCodeErr;	// 回包中错误信息为验证码错误
+			std::string jsonstr = root.toStyledString();	// 将Json结构序列化
+			beast::ostream(connection->_response.body()) << jsonstr;	//将序列化后的json信息给到_response中的body
+			return true;
+		}
+
+		// 验证码一致
+		root["error"] = ErrorCodes::Success;
+		root["user"] = user;
+		root["email"] = email;
+		root["passwd"] = passwd;
+		root["confirm"] = confirm;
+		root["verifyCode"] = verifyCode;
+		std::string jsonstr = root.toStyledString();
+		beast::ostream(connection->_response.body()) << jsonstr;
+		return true;
+		});
 }
 
 bool LogicSystem::handleGet(std::string path, std::shared_ptr<HttpConnection> connection) {
