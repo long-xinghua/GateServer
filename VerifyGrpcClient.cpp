@@ -62,7 +62,7 @@ std::unique_ptr<VarifyService::Stub> RPConPool::getConnection() {
 	if (b_stop_) {
 		return nullptr;	// 获取一个空指针，告知上一级连接关闭了
 	}
-
+	// 必须用move将unique_ptr的所有权交出来，否则返回的是connections_.front()的引用，破坏了unique_ptr的规则
 	auto stub = std::move(connections_.front());
 	connections_.pop();	// move后原来的对象还在，只是变为了nullptr，所以要将其pop出去
 	return stub;	// 由于stub是个局部变量，因此返回时也是个右值，通过移动语义将unique_ptr的所有权交给调用方

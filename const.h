@@ -22,6 +22,7 @@
 #include "hiredis.h"
 #include <cassert>
 
+
 // 简化名称
 namespace beast = boost::beast;         // from <boost/beast.hpp>
 namespace http = beast::http;           // from <boost/beast/http.hpp>
@@ -39,7 +40,21 @@ enum ErrorCodes {
 	EmailNoMatch = 1007,	// 邮箱不匹配
 	PasswdUpdateErr = 1008,	// 更新密码失败
 	PasswdInvalid = 1009,	// 密码不符规格
+	RPCGetFailed = 1010,	// 获取RPC请求失败
 };
 
 #define CODEPREFIX  "code_"
 
+
+// Defer类用于实现类似go语言中的defer功能，在Defer对象作用域结束之前一定会调用一次func_函数。
+class Defer {
+public:
+	// 构造函数接收一个函数指针或lambda表达式
+	Defer(std::function<void()> func):func_(func){}
+	// 在调出其作用域时调用析构函数，析构函数中调用待执行的func_函数
+	~Defer() {
+		func_();
+	}
+private:
+	std::function<void()> func_;
+};

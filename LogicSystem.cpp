@@ -2,6 +2,7 @@
 #include "HttpConnection.h"
 #include "VerifyGrpcClient.h"
 #include "RedisMgr.h"
+#include "MysqlMgr.h"
 
 void LogicSystem::regGet(std::string url, HttpHander handler) {
 	_get_handlers.insert(make_pair(url, handler));	// 将url和回调函数写入map中
@@ -119,12 +120,25 @@ LogicSystem::LogicSystem() {
 		}
 
 		// 验证码一致
+		// 将注册的用户信息添加到mysql数据库中
+		int uid = MysqlMgr::getInstance()->regUser(user, email, passwd);
+		if (uid == 0 || uid == -1) {	// uid为0说明用户名或邮箱已经存在了，-1说明执行失败了
+			std::cout << " user or email exist" << std::endl;
+			root["error"] = ErrorCodes::UserExist;
+			std::string jsonstr = root.toStyledString();
+			beast::ostream(connection->_response.body()) << jsonstr;
+			return true;
+		}
+		std::cout << "用户信息注册成功" << std::endl;
+
 		root["error"] = ErrorCodes::Success;
 		root["user"] = user;
+		root["uid"] = uid;
 		root["email"] = email;
 		root["passwd"] = passwd;
 		root["confirm"] = confirm;
 		root["verifyCode"] = verifyCode;
+		std::cout <<"给客户端发送的uid："<< root["uid"] << std::endl;  // 输出 JSON 字符串以检查内容
 		std::string jsonstr = root.toStyledString();
 		beast::ostream(connection->_response.body()) << jsonstr;
 		return true;
