@@ -145,7 +145,7 @@ int main()
 			ioc.stop();
 			});
 
-		std::make_shared<CServer>(ioc, port)->start();
+		std::make_shared<CServer>(ioc, port)->start();	// 创建CServer对象，绑定底层ioc和端口并让它跑起来
 		std::cout << "Gate Serverlisten on port " << port << std::endl;
 		ioc.run();	//让事件轮询起来
 

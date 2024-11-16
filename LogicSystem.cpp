@@ -3,6 +3,7 @@
 #include "VerifyGrpcClient.h"
 #include "RedisMgr.h"
 #include "MysqlMgr.h"
+#include "StatusGrpcClient.h"
 
 void LogicSystem::regGet(std::string url, HttpHander handler) {
 	_get_handlers.insert(make_pair(url, handler));	// 将url和回调函数写入map中
@@ -22,8 +23,10 @@ LogicSystem::LogicSystem() {
 		}
 		});
 
-	regPost("/get_varifyCode", [](std::shared_ptr<HttpConnection> connection) {	// 注册获取验证码的post请求
+	// 注册获取验证码的post请求
+	regPost("/get_varifyCode", [](std::shared_ptr<HttpConnection> connection) {	
 		auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());	// 将客户端发过来的数据转换成字符串类型
+		std::cout << "request: get_varifyCode" << std::endl;
 		std::cout << "receive body: " << body_str << std::endl;
 		connection->_response.set(http::field::content_type, "text/json");	// 指定给客户端回一个json类型的数据
 		Json::Value root;	// 发给客户端的json数据
@@ -59,8 +62,10 @@ LogicSystem::LogicSystem() {
 		return true;
 		});
 
-	regPost("/user_register", [](std::shared_ptr<HttpConnection> connection) {
+	// 注册用户的请求
+	regPost("/user_register", [](std::shared_ptr<HttpConnection> connection) {	
 		auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());	// 将客户端发过来的数据转换成字符串类型
+		std::cout << "request: user_register" << std::endl;
 		std::cout << "receive body: " << body_str << std::endl;
 		connection->_response.set(http::field::content_type, "text/json");	// 指定给客户端回一个json类型的数据
 		Json::Value root;	// 发给客户端的json数据
@@ -139,6 +144,145 @@ LogicSystem::LogicSystem() {
 		root["confirm"] = confirm;
 		root["verifyCode"] = verifyCode;
 		std::cout <<"给客户端发送的uid："<< root["uid"] << std::endl;  // 输出 JSON 字符串以检查内容
+		std::string jsonstr = root.toStyledString();
+		beast::ostream(connection->_response.body()) << jsonstr;
+		return true;
+		});
+
+	// 重置密码请求
+	regPost("/reset_passwd", [](std::shared_ptr<HttpConnection> connection) {
+		auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());	// 将客户端发过来的数据转换成字符串类型
+		std::cout << "request: reset_passwd" << std::endl;
+		std::cout << "receive body: " << body_str << std::endl;
+		connection->_response.set(http::field::content_type, "text/json");	// 指定给客户端回一个json类型的数据
+		Json::Value root;	// 发给客户端的json数据
+		Json::Reader reader;	// 用于解析出Json数据
+		Json::Value src_root;	// 客户端发过来的json数据
+		bool parse_success = reader.parse(body_str, src_root);	// Json::Reader::parse将字符串格式的json数据body_str解析成Json::value类型，返回解析情况（成功或失败）
+		if (!parse_success) {	//	解析失败
+			std::cout << "Failed to parse JSON data" << std::endl;
+			root["error"] = ErrorCodes::Error_Json;	//回包中设置一下错误信息
+			std::string jsonstr = root.toStyledString();	// 将Json结构序列化
+			beast::ostream(connection->_response.body()) << jsonstr;	//将序列化后的json信息给到_response中的body
+			return true;
+		}
+		if (!src_root.isMember("email")) {	// JSON中不存在"email"的项
+			std::cout << "no member called email" << std::endl;
+			root["error"] = ErrorCodes::Error_Json;	//回包中设置一下错误信息
+			std::string jsonstr = root.toStyledString();	// 将Json结构序列化
+			beast::ostream(connection->_response.body()) << jsonstr;	//将序列化后的json信息给到_response中的body
+			return true;
+		}
+
+		std::string email = src_root["email"].asString();
+		std::string user = src_root["user"].asString();
+		std::string passwd = src_root["passwd"].asString();
+		std::string verifyCode = src_root["verifyCode"].asString();
+
+
+		// 连接redis服务器，确认客户端的验证码是否和redis服务器中的一致
+		// 之前config.ini中的redis服务器地址没改，导致一直返回REDIS_ERR_PROTOCOL，后改为本地ip地址
+		std::string trueVerifyCode;
+		std::string key = CODEPREFIX + email;
+		std::cout << "key:" << key << std::endl;
+		bool b_get_varify_code = RedisMgr::getInstance()->get(key, trueVerifyCode);
+		connection->_response.set(http::field::content_type, "text/json");	// 指定给客户端回一个json类型的数据
+		if (!b_get_varify_code) {	// 获取redis中的验证码失败
+			std::cout << "connect to redis failed or verifyCode is expired" << trueVerifyCode << std::endl;
+			root["error"] = ErrorCodes::VerifyExpired;	// 回包中错误信息为验证码过期
+			std::string jsonstr = root.toStyledString();	// 将Json结构序列化
+			beast::ostream(connection->_response.body()) << jsonstr;	//将序列化后的json信息给到_response中的body
+			return true;
+		}
+		// 获取验证码成功，判断客户端验证码和redis验证码是否一致
+		if (trueVerifyCode != src_root["verifyCode"].asString()) {
+			std::cout << "wrong verify code!!" << std::endl;
+			root["error"] = ErrorCodes::VerifyCodeErr;	// 回包中错误信息为验证码错误
+			std::string jsonstr = root.toStyledString();	// 将Json结构序列化
+			beast::ostream(connection->_response.body()) << jsonstr;	//将序列化后的json信息给到_response中的body
+			return true;
+		}
+
+		// 查询用户名和邮箱是否匹配(这里感觉应该用邮箱去验证用户名，因为邮箱是唯一的，用户名并不唯一，用用户名查找数据库中的邮箱可能得到好几个结果，还要过滤结果)
+		bool valid = MysqlMgr::getInstance()->checkEmail(user, email);
+		if (!valid) {	// 用户名或邮箱错误
+			std::cout << "user not exists or user email not match" << std::endl;
+			root["error"] = ErrorCodes::EmailNoMatch;
+			std::string jsonstr = root.toStyledString();
+			beast::ostream(connection->_response.body()) << jsonstr;
+			return true;
+		}
+
+		//用户名与邮箱匹配，更新Mysql中的密码
+		bool b_update = MysqlMgr::getInstance()->updatePasswd(email, passwd);
+		if (!b_update) {
+			std::cout << "failed to update password" << std::endl;
+			root["error"] = ErrorCodes::PasswdUpdateErr;
+			std::string jsonstr = root.toStyledString();
+			beast::ostream(connection->_response.body()) << jsonstr;
+			return true;
+		}
+
+		std::cout << "update password success" << std::endl;
+		root["error"] = ErrorCodes::Success;
+		root["user"] = user;
+		root["email"] = email;
+		root["passwd"] = passwd;
+		root["verifyCode"] = verifyCode;
+		std::string jsonstr = root.toStyledString();
+		beast::ostream(connection->_response.body()) << jsonstr;
+		return true;
+		});
+
+	// 登录请求
+	regPost("/user_login", [](std::shared_ptr<HttpConnection> connection) {
+		auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());	// 将客户端发过来的数据转换成字符串类型
+		std::cout << "request: user_login" << std::endl;
+		std::cout << "receive body: " << body_str << std::endl;
+		connection->_response.set(http::field::content_type, "text/json");	// 指定给客户端回一个json类型的数据
+		Json::Value root;	// 发给客户端的json数据
+		Json::Reader reader;	// 用于解析出Json数据
+		Json::Value src_root;	// 客户端发过来的json数据
+		bool parse_success = reader.parse(body_str, src_root);	// Json::Reader::parse将字符串格式的json数据body_str解析成Json::value类型，返回解析情况（成功或失败）
+		if (!parse_success) {	//	解析失败
+			std::cout << "Failed to parse JSON data" << std::endl;
+			root["error"] = ErrorCodes::Error_Json;	//回包中设置一下错误信息
+			std::string jsonstr = root.toStyledString();	// 将Json结构序列化
+			beast::ostream(connection->_response.body()) << jsonstr;	//将序列化后的json信息给到_response中的body
+			return true;
+		}
+
+		std::string email = src_root["email"].asString();
+		std::string passwd = src_root["passwd"].asString();
+		UserInfo userInfo;
+		// 查询用户名和邮箱是否匹配(这里感觉应该用邮箱去验证用户名，因为邮箱是唯一的，用户名并不唯一，用用户名查找数据库中的邮箱可能得到好几个结果，还要过滤结果)
+		bool valid = MysqlMgr::getInstance()->checkPasswd(email, passwd, userInfo);
+		if (!valid) {	// 用户名或邮箱错误
+			std::cout << "user not exists or user password not match" << std::endl;
+			root["error"] = ErrorCodes::PasswdInvalid;
+			std::string jsonstr = root.toStyledString();
+			beast::ostream(connection->_response.body()) << jsonstr;
+			return true;
+		}
+
+		std::cout << "user authentication success" << std::endl;
+		// 通过StatusServer查询并获取当前可用的服务器信息，找到合适的连接
+		auto reply = StatusGrpcClient::getInstance()->getChatServer(userInfo.uid);
+		if (reply.error()) {
+			std::cout << "grpc get chat server failed, error is: " << reply.error() << std::endl;
+			root["error"] = ErrorCodes::RPCFailed;
+			std::string jsonstr = root.toStyledString();
+			beast::ostream(connection->_response.body()) << jsonstr;
+			return true;
+		}
+
+		std::cout << "login success" << std::endl;
+		root["error"] = ErrorCodes::Success;
+		root["uid"] = userInfo.uid;
+		root["email"] = email;
+		root["host"] = reply.host();
+		root["port"] = reply.port();
+		root["token"] = reply.token();
 		std::string jsonstr = root.toStyledString();
 		beast::ostream(connection->_response.body()) << jsonstr;
 		return true;

@@ -82,7 +82,7 @@ std::unique_ptr<SqlConnection> MysqlPool::getConnection() {
 	}
 	std::unique_ptr<SqlConnection> con = std::move(pool_.front());
 	pool_.pop();
-	return con;
+	return con;	// 由于返回类型为unique_ptr<SqlConnection>，因此在外部用auto a=getConnection()的话会使用unique_ptr的移动语义，将con的所有权转给a
 }
 
 void MysqlPool::returnConnection(std::unique_ptr<SqlConnection> con) {
@@ -111,7 +111,7 @@ MysqlDao::MysqlDao() {
 MysqlDao::~MysqlDao() {
 	pool_->close();
 }
-int MysqlDao::regUser(const std::string name, const std::string email, const std::string passwd) {
+int MysqlDao::regUser(const std::string& name, const std::string& email, const std::string& passwd) {
 	auto con = pool_->getConnection();
 	try {
 		if (con == nullptr) {
@@ -148,4 +148,122 @@ int MysqlDao::regUser(const std::string name, const std::string email, const std
 		return -1;
 	}
 	
+}
+
+bool MysqlDao::checkEmail(const std::string& name, const std::string& email) {
+	auto con = pool_->getConnection();
+	try {
+		if (con == nullptr) {
+			std::cout << "cannot get a Mysql connection" << std::endl;
+			return false;
+		}
+		// 准备查询语句
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement("SELECT name FROM user WHERE email = ?"));
+		// 设置传入的参数
+		// std::string quotedEmail = "'" + email + "'";
+		pstmt->setString(1, email);
+		// 执行查询
+		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+
+		while (res->next()) {
+			std::cout << "进入while (res->next())代码块" << std::endl;
+			std::string nameColumn = "name";
+			// 在res->getString()中不能直接使用name，因为在这里name是个变量代表用户名，而不是"name"字符串！！！！！
+			std::cout << "check user: " << res->getString(nameColumn) << std::endl;
+			if (res->getString(nameColumn) != name) {	// 用户名和邮箱不匹配
+				std::cout << "name in mysql: " << res->getString(nameColumn) << ", input name: " << name << std::endl;
+				pool_->returnConnection(std::move(con));
+				return false;
+			}
+			pool_->returnConnection(std::move(con));
+			return true;
+		}
+		std::cout << "执行到此" << std::endl;
+		// 如果res->next()为空说明mysql里找不到这个邮箱，也是用户不存在的情况
+		pool_->returnConnection(std::move(con));
+		return false;
+		//return true;
+	}
+	catch (sql::SQLException& e) {
+		pool_->returnConnection(std::move(con));
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}
+
+bool MysqlDao::updatePasswd(const std::string& email, const std::string& passwd) {
+	auto con = pool_->getConnection();
+	try {
+		if (con == nullptr) {
+			std::cout << "cannot get a Mysql connection" << std::endl;
+			return false;
+		}
+		// 准备查询语句(如果邮箱不存在返回的是空的数据，在匹配时也会跟name匹配不上)
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement("UPDATE user SET passwd = ? WHERE email = ?"));
+		// 设置传入的参数
+		pstmt->setString(1, passwd);
+		pstmt->setString(2, email);
+		// 执行更新
+		int updateCount = pstmt->executeUpdate();
+
+		std::cout << "Updated rows: " << updateCount << std::endl;
+
+		pool_->returnConnection(std::move(con));
+		return true;
+	}
+	catch (sql::SQLException& e) {
+		pool_->returnConnection(std::move(con));
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}
+
+bool MysqlDao::checkPasswd(const std::string& email, const std::string& passwd, UserInfo& userInfo) {
+	auto con = pool_->getConnection();
+
+	if (con == nullptr) {
+		std::cout << "cannot get a Mysql connection" << std::endl;
+		return false;
+	}
+
+	Defer defer([this, &con]() {
+		pool_->returnConnection(std::move(con));
+		});
+
+	try {	
+		// 准备查询语句
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement("SELECT * FROM user WHERE email = ?"));
+		// 设置传入的参数
+		pstmt->setString(1, email);
+		// 执行查询
+		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+		std::string truePasswd = "";
+		while (res->next()) {
+			truePasswd = res->getString("passwd");
+			//输出查询到的密码
+			std::cout << "get password from mysql: " << truePasswd << std::endl;
+			// pool_->returnConnection(std::move(con));
+			break;
+		}
+		// 密码不匹配（当查询邮箱不存在的时候truePasswd就是默认的空字符，也不会匹配上）
+		if (passwd != truePasswd) {	
+			return false;
+		}
+		userInfo.name = res->getString("name");
+		userInfo.email = res->getString("email");
+		userInfo.passwd = truePasswd;
+		userInfo.uid = res->getInt("uid");
+		return true;
+	}
+	catch (sql::SQLException& e) {
+		// pool_->returnConnection(std::move(con));
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
 }

@@ -46,14 +46,16 @@ struct UserInfo {
 	std::string email;
 };
 
+// ÓÃÓÚ¸úMysql½»»¥£¨Dao£¬Data Access Object£©
 class MysqlDao {
 public:
 	MysqlDao();
 	~MysqlDao();
-	int regUser(const std::string name, const std::string email, const std::string passwd);
-	/*bool checkEmail(const std::string name, const std::string email);
-	bool checkPasswd(const std::string name, const std::string passwd);
-	bool updatePasswd(const std::string name, const std::string newPasswd);*/
+	int regUser(const std::string& name, const std::string& email, const std::string& passwd);
+	bool checkEmail(const std::string& name, const std::string& email);
+	//bool checkPasswd(const std::string name, const std::string passwd);
+	bool updatePasswd(const std::string& name, const std::string& newPasswd);
+	bool checkPasswd(const std::string& email, const std::string& passwd, UserInfo& userInfo);
 private:
 	std::unique_ptr<MysqlPool> pool_;
 };

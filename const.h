@@ -37,7 +37,7 @@ enum ErrorCodes {
 	VerifyCodeErr = 1004,	// 验证码错误
 	UserExist = 1005,		// 用户已存在
 	PasswdErr = 1006,		// 密码错误
-	EmailNoMatch = 1007,	// 邮箱不匹配
+	EmailNoMatch = 1007,	// 邮箱不匹配(用户名或者邮箱错误)
 	PasswdUpdateErr = 1008,	// 更新密码失败
 	PasswdInvalid = 1009,	// 密码不符规格
 	RPCGetFailed = 1010,	// 获取RPC请求失败
