@@ -20,6 +20,7 @@ public:
     bool hSet(const char* key, const char* hkey, const char* hvalue, size_t hvaluelen); // 重载版本，适合值为二进制数据而不是string数据的情况
     std::string hGet(const std::string& key, const std::string& hkey);  //得到哈希类型数据中字段（二级的key）对应的值
     bool del(const std::string& key);   // 删除指定的键值对
+    bool hDel(const std::string& key, const std::string& field);        // 删除哈希类型数据中的一个值
     bool existsKey(const std::string& key); // 判断键存不存在
     void close();   // 释放连接，在析构中写
 private:

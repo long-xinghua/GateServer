@@ -41,6 +41,7 @@ enum ErrorCodes {
 	PasswdUpdateErr = 1008,	// 更新密码失败
 	PasswdInvalid = 1009,	// 密码不符规格
 	RPCGetFailed = 1010,	// 获取RPC请求失败
+	RegisterFailed = 1011,	// 注册用户失败
 };
 
 #define CODEPREFIX  "code_"

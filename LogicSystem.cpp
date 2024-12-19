@@ -127,13 +127,22 @@ LogicSystem::LogicSystem() {
 		// 验证码一致
 		// 将注册的用户信息添加到mysql数据库中
 		int uid = MysqlMgr::getInstance()->regUser(user, email, passwd);
-		if (uid == 0 || uid == -1) {	// uid为0说明用户名或邮箱已经存在了，-1说明执行失败了
+		if (uid == 0 ) {	// uid为0说明用户名或邮箱已经存在了，-1说明执行失败了
 			std::cout << " user or email exist" << std::endl;
 			root["error"] = ErrorCodes::UserExist;
 			std::string jsonstr = root.toStyledString();
 			beast::ostream(connection->_response.body()) << jsonstr;
 			return true;
 		}
+
+		if (uid == -1) {
+			std::cout << " regist failed" << std::endl;
+			root["error"] = ErrorCodes::RegisterFailed;
+			std::string jsonstr = root.toStyledString();
+			beast::ostream(connection->_response.body()) << jsonstr;
+			return true;
+		}
+
 		std::cout << "用户信息注册成功" << std::endl;
 
 		root["error"] = ErrorCodes::Success;

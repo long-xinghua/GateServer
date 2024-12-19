@@ -51,11 +51,11 @@ void MysqlPool::checkConnection() {
 		if (timeStamp - con->_last_oper_time < 300) {	// 如果距离上次从操作时间小于300秒就不进行操作
 			continue;
 		}
-		try {	// 太久未进行操作，为避免断开连接，主动向mysql发一个查询请求
+		try {	// 太久未进行操作，为避免断开连接，主动向mysql发一个查询请求，即心跳
 			std::unique_ptr<sql::Statement> stmt(con->_con->createStatement());
 			stmt->executeQuery("SELECT 1");
 			con->_last_oper_time = timeStamp;
-			std::cout << "execute 'keep alive' query" << std::endl;
+			//std::cout << "execute 'keep alive' query" << std::endl;
 		}
 		catch(sql::SQLException e){// 查询失败，重新创立一个连接替换现有连接
 			std::cout << "execute query failed, error is: " << e.what() << std::endl;

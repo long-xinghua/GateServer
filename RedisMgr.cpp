@@ -15,14 +15,15 @@ RedisMgr::~RedisMgr() {
 
 bool RedisMgr::get(const std::string& key, std::string& value) {
     redisContext* connect = pool_->getConnection();
-
+    
     if (connect == nullptr) {    // 获取连接失败
         return false;
     }
-    // 之前没有归还连接，这里用defer来归还连接。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。
+    // 只要取出连接了就要记得归还，否则会出现连接池空了的情况
     Defer defer([this, &connect]() {
         pool_->returnConnection(connect);
         });
+
     auto reply = (redisReply*)redisCommand(connect, "GET %s", key.c_str());    //redisCommand返回的是void*，给它转成redisReply*的类型
     if (reply == NULL) {
         std::cout << "[ GET  " << key << " ] failed" << std::endl;
@@ -31,7 +32,7 @@ bool RedisMgr::get(const std::string& key, std::string& value) {
     }
 
     if (reply->type != REDIS_REPLY_STRING) { // 正常的回复必须是string类型（redis的基本类型），判断一下
-        std::cout << "[ GET  " << key << " ] failed, reply is not a string type, reply type: " << reply->type << std::endl;
+        std::cout << "[ GET  " << key << " ] failed, reply is not a string type, reply type: "<<reply->type << std::endl;
         freeReplyObject(reply);
         return false;
     }
@@ -48,13 +49,12 @@ bool RedisMgr::set(const std::string& key, const std::string& value) {
     if (connect == nullptr) {    // 获取连接失败
         return false;
     }
-    //执行redis命令行
-    auto reply = (redisReply*)redisCommand(connect, "SET %s %s", key.c_str(), value.c_str());
-
-    // 之前没有归还连接，这里用defer来归还连接。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。
+    // 只要取出连接了就要记得归还，否则会出现连接池空了的情况
     Defer defer([this, &connect]() {
         pool_->returnConnection(connect);
         });
+    //执行redis命令行
+    auto reply = (redisReply*)redisCommand(connect, "SET %s %s", key.c_str(), value.c_str());
 
     //如果返回NULL则说明执行失败
     if (NULL == reply)
@@ -105,12 +105,10 @@ bool RedisMgr::lPush(const std::string& key, const std::string& value)
     if (connect == nullptr) {    // 获取连接失败
         return false;
     }
-
-    // 之前没有归还连接，这里用defer来归还连接。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。
+    // 只要取出连接了就要记得归还，否则会出现连接池空了的情况
     Defer defer([this, &connect]() {
         pool_->returnConnection(connect);
         });
-
     auto reply = (redisReply*)redisCommand(connect, "LPUSH %s %s", key.c_str(), value.c_str());
     if (NULL == reply)
     {
@@ -135,12 +133,10 @@ bool RedisMgr::lPop(const std::string& key, std::string& value) {
     if (connect == nullptr) {    // 获取连接失败
         return false;
     }
-
-    // 之前没有归还连接，这里用defer来归还连接。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。
+    // 只要取出连接了就要记得归还，否则会出现连接池空了的情况
     Defer defer([this, &connect]() {
         pool_->returnConnection(connect);
         });
-
     auto reply = (redisReply*)redisCommand(connect, "LPOP %s ", key.c_str());
     if (reply == nullptr || reply->type == REDIS_REPLY_NIL) {
         std::cout << "Execut command [ LPOP " << key << " ] failure ! " << std::endl;
@@ -158,12 +154,10 @@ bool RedisMgr::rPush(const std::string& key, const std::string& value) {
     if (connect == nullptr) {    // 获取连接失败
         return false;
     }
-
-    // 之前没有归还连接，这里用defer来归还连接。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。
+    // 只要取出连接了就要记得归还，否则会出现连接池空了的情况
     Defer defer([this, &connect]() {
         pool_->returnConnection(connect);
         });
-
     auto reply = (redisReply*)redisCommand(connect, "RPUSH %s %s", key.c_str(), value.c_str());
     if (NULL == reply)
     {
@@ -188,12 +182,10 @@ bool RedisMgr::rPop(const std::string& key, std::string& value) {
     if (connect == nullptr) {    // 获取连接失败
         return false;
     }
-
-    // 之前没有归还连接，这里用defer来归还连接。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。
+    // 只要取出连接了就要记得归还，否则会出现连接池空了的情况
     Defer defer([this, &connect]() {
         pool_->returnConnection(connect);
         });
-
     auto reply = (redisReply*)redisCommand(connect, "RPOP %s ", key.c_str());
     if (reply == nullptr || reply->type == REDIS_REPLY_NIL) {
         std::cout << "Execut command [ RPOP " << key << " ] failure ! " << std::endl;
@@ -211,12 +203,10 @@ bool RedisMgr::hSet(const std::string& key, const std::string& hkey, const std::
     if (connect == nullptr) {    // 获取连接失败
         return false;
     }
-
-    // 之前没有归还连接，这里用defer来归还连接。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。
+    // 只要取出连接了就要记得归还，否则会出现连接池空了的情况
     Defer defer([this, &connect]() {
         pool_->returnConnection(connect);
         });
-
     auto reply = (redisReply*)redisCommand(connect, "HSET %s %s %s", key.c_str(), hkey.c_str(), value.c_str());
     if (reply == nullptr || reply->type != REDIS_REPLY_INTEGER) { // 如果是新字段插入返回1，如果字段已存在并且其值被更新，返回0
         std::cout << "Execut command [ HSet " << key << "  " << hkey << "  " << value << " ] failure ! " << std::endl;
@@ -235,12 +225,10 @@ bool RedisMgr::hSet(const char* key, const char* hkey, const char* hvalue, size_
     if (connect == nullptr) {    // 获取连接失败
         return false;
     }
-
-    // 之前没有归还连接，这里用defer来归还连接。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。
+    // 只要取出连接了就要记得归还，否则会出现连接池空了的情况
     Defer defer([this, &connect]() {
         pool_->returnConnection(connect);
         });
-
     const char* argv[4];
     size_t argvlen[4];
     argv[0] = "HSET";
@@ -251,7 +239,7 @@ bool RedisMgr::hSet(const char* key, const char* hkey, const char* hvalue, size_
     argvlen[2] = strlen(hkey);
     argv[3] = hvalue;
     argvlen[3] = hvaluelen;
-
+    
     auto reply = (redisReply*)redisCommandArgv(connect, 4, argv, argvlen);
     if (reply == nullptr || reply->type != REDIS_REPLY_INTEGER) {
         std::cout << "Execut command [ HSet " << key << "  " << hkey << "  " << hvalue << " ] failure ! " << std::endl;
@@ -269,12 +257,10 @@ std::string RedisMgr::hGet(const std::string& key, const std::string& hkey)
     if (connect == nullptr) {    // 获取连接失败
         return "";
     }
-
-    // 之前没有归还连接，这里用defer来归还连接。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。
+    // 只要取出连接了就要记得归还，否则会出现连接池空了的情况
     Defer defer([this, &connect]() {
         pool_->returnConnection(connect);
         });
-
     const char* argv[3];
     size_t argvlen[3];
     argv[0] = "HGET";
@@ -283,7 +269,7 @@ std::string RedisMgr::hGet(const std::string& key, const std::string& hkey)
     argvlen[1] = key.length();
     argv[2] = hkey.c_str();
     argvlen[2] = hkey.length();
-
+    
     auto reply = (redisReply*)redisCommandArgv(connect, 3, argv, argvlen);
     if (reply == nullptr || reply->type == REDIS_REPLY_NIL) {
         freeReplyObject(reply);
@@ -303,12 +289,10 @@ bool RedisMgr::del(const std::string& key)
     if (connect == nullptr) {    // 获取连接失败
         return false;
     }
-
-    // 之前没有归还连接，这里用defer来归还连接。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。
+    // 只要取出连接了就要记得归还，否则会出现连接池空了的情况
     Defer defer([this, &connect]() {
         pool_->returnConnection(connect);
         });
-
     auto reply = (redisReply*)redisCommand(connect, "DEL %s", key.c_str());
     if (reply == nullptr || reply->type != REDIS_REPLY_INTEGER) { // 返回被删除键的数量，键不存在返回0，删了一个就返回1...
         std::cout << "Execut command [ Del " << key << " ] failure ! " << std::endl;
@@ -320,18 +304,41 @@ bool RedisMgr::del(const std::string& key)
     return true;
 }
 
+bool RedisMgr::hDel(const std::string& key, const std::string& field) {
+    auto connect = pool_->getConnection();
+    if (connect == nullptr) {
+        return false;
+    }
+
+    Defer defer([&connect, this]() {
+        pool_->returnConnection(connect);
+        });
+
+    redisReply* reply = (redisReply*)redisCommand(connect, "HDEL %s %s", key.c_str(), field.c_str());
+    if (reply == nullptr) {
+        std::cerr << "HDEL command failed" << std::endl;
+        return false;
+    }
+
+    bool success = false;
+    if (reply->type == REDIS_REPLY_INTEGER) {
+        success = reply->integer > 0;   // 删除数量应该大于0
+    }
+
+    freeReplyObject(reply);
+    return success;
+}
+
 bool RedisMgr::existsKey(const std::string& key)
 {
     redisContext* connect = pool_->getConnection();
     if (connect == nullptr) {    // 获取连接失败
         return false;
     }
-
-    // 之前没有归还连接，这里用defer来归还连接。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。
+    // 只要取出连接了就要记得归还，否则会出现连接池空了的情况
     Defer defer([this, &connect]() {
         pool_->returnConnection(connect);
         });
-
     auto reply = (redisReply*)redisCommand(connect, "exists %s", key.c_str());
     if (reply == nullptr || reply->type != REDIS_REPLY_INTEGER || reply->integer == 0) {   // 返回值为0代表不存在，为1代表存在
         std::cout << "Not Found [ Key " << key << " ]  ! " << std::endl;
